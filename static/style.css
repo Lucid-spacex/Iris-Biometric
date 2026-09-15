@@ -1,12 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --ink: #080A0F;
-  --panel: #11141E;
-  --panel-raised: #181C2A;
-  --panel-hover: #1E2336;
-  --border: #23283B;
-  --border-light: #2F354D;
+  --ink: #1C1C21;
+  --panel: #25252C;
+  --panel-raised: #303038;
+  --panel-hover: #3A3A44;
+  --border: #444452;
+  --border-light: #555566;
   --text: #F0F2F8;
   --muted: #8E95AA;
   --iris: #E3A857;
@@ -801,21 +801,77 @@ table.scores tr.row-match {
   border-top: 1px solid var(--border);
 }
 
-/* ==================== RESPONSIVE ==================== */
+/* ==================== RESPONSIVENESS ==================== */
+.mobile-header {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.mobile-brand {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  color: var(--text);
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+
+.mobile-menu-btn {
+  background: transparent;
+  border: none;
+  color: var(--cyan);
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 @media (max-width: 768px) {
   .app-layout {
     flex-direction: column;
   }
-  .sidebar {
-    width: 100%;
-    height: auto;
-    position: relative;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
+  
+  .mobile-header {
+    display: flex;
   }
+  
+  .sidebar {
+    position: fixed;
+    top: 65px; /* below mobile header */
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 99;
+    height: calc(100vh - 65px);
+    border-right: none;
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .sidebar-brand {
+    display: none;
+  }
+  
   .main-content {
     padding: 24px 20px 60px;
   }
+  
+  .stat-row {
+    grid-template-columns: 1fr;
+  }
+  
   .verdicts-grid {
     grid-template-columns: 1fr;
   }

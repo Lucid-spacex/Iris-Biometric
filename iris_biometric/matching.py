@@ -33,6 +33,9 @@ def hamming_distance(probe: TemplateRecord, enrolled: TemplateRecord) -> float:
 
 
 def euclidean_distance(probe: TemplateRecord, enrolled: TemplateRecord) -> float:
+    if probe.euclidean_vector.shape != enrolled.euclidean_vector.shape:
+        # Projector/template dimension mismatch — treat as maximum distance (non-match).
+        return float("inf")
     diff = probe.euclidean_vector - enrolled.euclidean_vector
     return float(np.linalg.norm(diff))
 
@@ -51,6 +54,8 @@ class IdentificationResult:
     candidates: list[MatchCandidate]
     best_hamming: MatchCandidate | None
     best_euclidean: MatchCandidate | None
+    hamming_threshold: float
+    euclidean_threshold: float
 
     @property
     def hamming_decision(self) -> str:
@@ -99,4 +104,10 @@ def identify(
     qualifying_e = [c for c in candidates if c.euclidean_match]
     best_e = min(qualifying_e, key=lambda c: c.euclidean_distance) if qualifying_e else None
 
-    return IdentificationResult(candidates=candidates, best_hamming=best_h, best_euclidean=best_e)
+    return IdentificationResult(
+        candidates=candidates, 
+        best_hamming=best_h, 
+        best_euclidean=best_e,
+        hamming_threshold=hamming_threshold,
+        euclidean_threshold=euclidean_threshold
+    )

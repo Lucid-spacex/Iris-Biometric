@@ -7,6 +7,21 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+  <!-- Mobile Header -->
+  <div class="mobile-header">
+    <div class="brand-badge" style="width: 32px; height: 32px; margin-right: 12px;">
+      <div class="brand-iris" style="width: 10px; height: 10px;"></div>
+    </div>
+    <div class="mobile-brand">IRIS BIOMETRIC</div>
+    <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    </button>
+  </div>
+
 <div class="app-layout">
 
   <!-- ==================== SIDEBAR ==================== -->
@@ -43,6 +58,15 @@
           <line x1="23" y1="11" x2="17" y2="11"></line>
         </svg>
         <span>Enroll Identity</span>
+      </a>
+
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+        </svg>
+        <span>Dataset Analytics</span>
       </a>
 
       <a href="{{ url_for('gallery') }}" class="nav-item {% if active_page == 'gallery' %}active{% endif %}">

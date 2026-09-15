@@ -165,6 +165,8 @@ def enroll_identity(
 
         if gallery.storage and gallery.storage.is_connected:
             gallery.storage.save_projector(gallery.projector)
+    # else: gallery already has a projector (loaded from DB or from batch enrollment);
+    # do NOT replace it — all enrolled templates and new probes must use the SAME projector.
 
     enrolled_ref_ids: list[str] = []
     for p in processed:
@@ -184,7 +186,7 @@ def enroll_identity(
 def enroll_gallery(
     images_with_identity: list[tuple[str, np.ndarray]],
     config=DEFAULT_CONFIG,
-    aes_key_bits: int = DEFAULT_CONFIG.aes_key_bits,
+    aes_key: bytes | None = None,
     storage: DatabaseStorage | None = None,
 ) -> tuple[EncryptedGallery, list[str]]:
     """Stages 6 (gallery-only fit) + 9 (template build) + 10 (AES encrypt)
@@ -210,7 +212,9 @@ def enroll_gallery(
     raw_matrix = np.stack([p.raw_euclidean_vector for p in processed])
     projector = EuclideanProjector.fit(raw_matrix, n_components=config.pca_n_components)
 
-    aes_key = generate_key(aes_key_bits)
+    if aes_key is None:
+        aes_key = generate_key(DEFAULT_CONFIG.aes_key_bits)
+        
     db_store = storage if storage is not None else DatabaseStorage()
     gallery = EncryptedGallery(aes_key=aes_key, projector=projector, storage=db_store if db_store.is_connected else None)
 

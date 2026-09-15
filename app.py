@@ -155,8 +155,12 @@ def identify():
 
     candidates_sorted = sorted(result.candidates, key=lambda c: c.hamming_distance)
 
+    from iris_biometric.config import DEFAULT_CONFIG
+    h_thresh = DEFAULT_CONFIG.provisional_hamming_threshold
+    e_thresh = DEFAULT_CONFIG.provisional_euclidean_threshold
+
     return render_template(
-        "identify.html",
+        "result.html",
         **_base_context(
             gallery,
             active_page="identify",
@@ -168,6 +172,8 @@ def identify():
             code_uri=code_uri,
             probe_label=label,
             winning_ciphertext_hex=winning_ciphertext_hex,
+            hamming_threshold=h_thresh,
+            euclidean_threshold=e_thresh,
         ),
     )
 
@@ -297,6 +303,23 @@ def gallery():
 # def demo_evaluate():
 #     # Previously generated synthetic EER/ROC evaluation numbers
 #     pass
+
+
+import traceback
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Show the real error message instead of a generic 500 page."""
+    tb = traceback.format_exc()
+    return f"""<!DOCTYPE html>
+<html><head><title>500 Internal Server Error</title>
+<style>body{{background:#1C1C21;color:#e2e8f0;font-family:monospace;padding:40px;}}
+pre{{background:#25252C;padding:20px;border-radius:8px;overflow-x:auto;border-left:4px solid #ef4444;white-space:pre-wrap;}}
+h1{{color:#ef4444;}}a{{color:#06b6d4;}}</style></head><body>
+<h1>&#9888; Internal Server Error</h1>
+<pre>{tb}</pre>
+<p><a href="/">&#8592; Back to Home</a></p>
+</body></html>""", 500
 
 
 if __name__ == "__main__":
