@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iris Biometric Identification &mdash; Live Demo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="ring-badge"></div>
+    <h1>Iris biometric identification, running end to end</h1>
+    <p>
+      This page runs the actual pipeline &mdash; segmentation, Daugman rubber-sheet
+      normalisation, Log-Gabor encoding, AES-256 encrypted storage, and
+      Hamming / Euclidean one-to-many matching &mdash; on every click below.
+      Nothing here is pre-recorded.
+    </p>
+    <p class="note">
+      Pending CASIA-Iris-Thousand access, real biometric performance metrics
+      are benchmarked on the MMU1 Iris Database as an interim substitute dataset.
+      The pipeline logic is identical to what will run on CASIA once access is granted.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h2>Enrolled gallery</h2>
+    <p class="sub">Encrypted templates stored with random, non-reversible reference IDs.</p>
+    <div class="gallery-list">
+      {% for id in identities %}
+        <span class="chip">{{ id }}</span>
+      {% endfor %}
+    </div>
+    {% if skipped %}
+      <p class="upload-hint">Skipped (failed segmentation): {{ skipped|join(', ') }}</p>
+    {% endif %}
+    <div class="stat-row">
+      <div class="stat"><div class="num">{{ identities|length }}</div><div class="label">enrolled identities</div></div>
+      <div class="stat"><div class="num">{{ pca_components }}</div><div class="label">PCA components (gallery-fit)</div></div>
+      <div class="stat"><div class="num">AES-256</div><div class="label">template encryption</div></div>
+      <div class="stat"><div class="num">{{ storage_backend }}</div><div class="label">storage backend</div></div>
+    </div>
+    <p class="upload-hint" style="margin-top:16px;">
+      A stored template looks like this &mdash; the first 48 bytes of
+      <span class="chip" style="padding:2px 6px;">{{ sample_identity_key }}</span>'s encrypted record:
+    </p>
+    <div class="cipher-block">{{ sample_ciphertext }}&hellip;</div>
+  </div>
+
+  <!-- =======================================================================
+       DEMO FEATURE 1 & RESULTS PANEL: EVALUATE MATCHING ACCURACY
+       Commented out: Superseded by real human enrollment and live 1-to-many probe matching.
+       Preserved below so it can be restored or referenced later if needed.
+       =======================================================================
+  <div class="panel">
+    <h2>Evaluate matching accuracy</h2>
+    <p class="sub">
+      Runs Stages 13&ndash;14: derives the match/no-match threshold for each
+      metric at the Equal Error Rate, then reports Accuracy, Precision,
+      Recall, F1, FAR and FRR &mdash; on a freshly generated, labelled batch
+      of genuine and impostor probes.
+    </p>
+    <form method="POST" action="/demo/evaluate">
+      <button class="primary" type="submit">Run evaluation</button>
+    </form>
+  </div>
+
+  {% if evaluation %}
+    <div class="panel">
+      <div class="result-label">Data source: {{ evaluation.data_source }}</div>
+      <div class="verdicts">
+        <div class="verdict">
+          <div class="metric">Hamming &mdash; EER threshold</div>
+          <div class="decision">{{ "%.3f"|format(evaluation.hamming.threshold) }}</div>
+        </div>
+        <div class="verdict">
+          <div class="metric">Euclidean &mdash; EER threshold</div>
+          <div class="decision">{{ "%.2f"|format(evaluation.euclidean.threshold) }}</div>
+        </div>
+      </div>
+      <table class="scores">
+        <thead>
+          <tr><th>Metric</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>FAR</th><th>FRR</th><th>TP/TN/FP/FN</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Hamming</td>
+            <td>{{ "%.1f%%"|format(evaluation.hamming.accuracy * 100) }}</td>
+            <td>{{ "%.1f%%"|format(evaluation.hamming.precision * 100) }}</td>
+            <td>{{ "%.1f%%"|format(evaluation.hamming.recall * 100) }}</td>
+            <td>{{ "%.3f"|format(evaluation.hamming.f1) }}</td>
+            <td>{{ "%.1f%%"|format(evaluation.hamming.far * 100) }}</td>
+            <td>{{ "%.1f%%"|format(evaluation.hamming.frr * 100) }}</td>
+            <td>{{ evaluation.hamming.tp }}/{{ evaluation.hamming.tn }}/{{ evaluation.hamming.fp }}/{{ evaluation.hamming.fn }}</td>
+          </tr>
+          <tr>
+            <td>Euclidean</td>
+            <td>{{ "%.1f%%"|format(evaluation.euclidean.accuracy * 100) }}</td>
+            <td>{{ "%.1f%%"|format(evaluation.euclidean.precision * 100) }}</td>
+            <td>{{ "%.1f%%"|format(evaluation.euclidean.recall * 100) }}</td>
+            <td>{{ "%.3f"|format(evaluation.euclidean.f1) }}</td>
+            <td>{{ "%.1f%%"|format(evaluation.euclidean.far * 100) }}</td>
+            <td>{{ "%.1f%%"|format(evaluation.euclidean.frr * 100) }}</td>
+            <td>{{ evaluation.euclidean.tp }}/{{ evaluation.euclidean.tn }}/{{ evaluation.euclidean.fp }}/{{ evaluation.euclidean.fn }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+  ======================================================================= -->
+
+  <div class="panel">
+    <h2>Operations</h2>
+    <p class="sub">The application now uses a dedicated multi-page interface with sidebar navigation.</p>
+    <div class="panel-actions" style="margin-top:0; padding-top:0; border-top:none;">
+      <a href="{{ url_for('identify') }}" class="btn btn-primary">Go to Probe Identifier &rarr;</a>
+      <a href="{{ url_for('enroll') }}" class="btn btn-secondary">Enroll Real Identity</a>
+      <a href="{{ url_for('gallery') }}" class="btn btn-secondary">View Encrypted Gallery</a>
+    </div>
+
+    <!-- =======================================================================
+         DEMO FEATURE 2 & 3: SCAN GENUINE / IMPOSTOR SYNTHETIC PROBES
+         Commented out: Superseded by real human photo enrollment and identification.
+         =======================================================================
+    <div class="actions" style="margin-top:16px;">
+      <form class="inline" method="POST" action="/demo/genuine">
+        <input type="hidden" name="identity_index" value="0">
+        <button class="primary" type="submit">Scan a genuine probe</button>
+      </form>
+      <form class="inline" method="POST" action="/demo/impostor">
+        <button type="submit">Scan an impostor probe</button>
+      </form>
+    </div>
+    ======================================================================= -->
+  </div>
+
+  {% if error %}
+    <div class="error-banner"><strong>{{ probe_label }}:</strong> {{ error }}</div>
+  {% endif %}
+
+  {% if result %}
+    <div class="panel">
+      <div class="result-label">{{ probe_label }}</div>
+
+      <div class="verdicts">
+        <div class="verdict {{ 'match' if result.best_hamming else 'nomatch' }}">
+          <div class="metric">Hamming distance verdict</div>
+          <div class="decision">{{ result.hamming_decision }}</div>
+        </div>
+        <div class="verdict {{ 'match' if result.best_euclidean else 'nomatch' }}">
+          <div class="metric">Euclidean distance verdict</div>
+          <div class="decision">{{ result.euclidean_decision }}</div>
+        </div>
+      </div>
+
+      <div class="stages">
+        <div class="stage-card">
+          <img src="{{ overlay_uri }}" alt="Detected pupil and iris boundaries">
+          <div class="caption">Segmentation &mdash; detected boundaries</div>
+        </div>
+        <div class="stage-card">
+          <img src="{{ strip_uri }}" alt="Unwrapped normalised strip">
+          <div class="caption">Normalised strip (Daugman rubber-sheet)</div>
+        </div>
+        <div class="stage-card">
+          <img src="{{ code_uri }}" alt="Binary IrisCode">
+          <div class="caption">Resulting IrisCode (Hamming branch)</div>
+        </div>
+      </div>
+
+      <table class="scores">
+        <thead>
+          <tr><th>Enrolled identity</th><th>Hamming dist.</th><th>Match?</th><th>Euclidean dist.</th><th>Match?</th></tr>
+        </thead>
+        <tbody>
+          {% for c in candidates %}
+          <tr>
+            <td>{{ c.identity_key }}</td>
+            <td>{{ "%.3f"|format(c.hamming_distance) }}</td>
+            <td class="{{ 'yes' if c.hamming_match else 'no' }}">{{ 'yes' if c.hamming_match else 'no' }}</td>
+            <td>{{ "%.2f"|format(c.euclidean_distance) }}</td>
+            <td class="{{ 'yes' if c.euclidean_match else 'no' }}">{{ 'yes' if c.euclidean_match else 'no' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if winning_ciphertext_hex %}
+      <p class="upload-hint" style="margin-top:18px;">
+        The matched record is only ever compared in decrypted memory &mdash; at rest it's this:
+      </p>
+      <div class="cipher-block">{{ winning_ciphertext_hex }}&hellip;</div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <footer>
+    Design-and-planning stage HND seminar project. Match/non-match thresholds
+    above are provisional placeholders, not the ROC/EER-derived values the
+    methodology specifies &mdash; those require real genuine/impostor
+    distributions from CASIA-Iris-Thousand, pending dataset access. Figures
+    on this page are a software-correctness demonstration, not a biometric
+    performance claim.
+  </footer>
+
+</div>
+</body>
+</html>

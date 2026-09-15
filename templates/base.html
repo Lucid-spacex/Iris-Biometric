@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Iris Biometric Identification{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ==================== SIDEBAR ==================== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-badge">
+        <div class="brand-iris"></div>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title">IRIS BIOMETRIC</div>
+        <div class="brand-subtitle">Encrypted Identification</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-heading">OPERATIONS</div>
+      <a href="{{ url_for('identify') }}" class="nav-item {% if active_page == 'identify' %}active{% endif %}">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <line x1="12" y1="1" x2="12" y2="4"></line>
+          <line x1="12" y1="20" x2="12" y2="23"></line>
+          <line x1="1" y1="12" x2="4" y2="12"></line>
+          <line x1="20" y1="12" x2="23" y2="12"></line>
+        </svg>
+        <span>Identify Probe</span>
+      </a>
+
+      <a href="{{ url_for('enroll') }}" class="nav-item {% if active_page == 'enroll' %}active{% endif %}">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="8.5" cy="7" r="4"></circle>
+          <line x1="20" y1="8" x2="20" y2="14"></line>
+          <line x1="23" y1="11" x2="17" y2="11"></line>
+        </svg>
+        <span>Enroll Identity</span>
+      </a>
+
+      <a href="{{ url_for('gallery') }}" class="nav-item {% if active_page == 'gallery' %}active{% endif %}">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span>Encrypted Gallery</span>
+        <span class="nav-badge">{{ gallery_count }}</span>
+      </a>
+    </nav>
+
+    <!-- Sidebar System Telemetry Widget -->
+    <div class="sidebar-status">
+      <div class="status-card">
+        <div class="status-row">
+          <span class="pulse-dot {{ 'online' if storage_backend == 'Neon Postgres' else 'offline' }}"></span>
+          <span class="status-label">{{ storage_backend }}</span>
+        </div>
+        <div class="status-meta">
+          <div><span class="meta-name">Storage:</span> {{ 'Encrypted Postgres' if storage_backend == 'Neon Postgres' else 'In-Memory' }}</div>
+          <div><span class="meta-name">Enrolled:</span> {{ gallery_count }} identities</div>
+          <div><span class="meta-name">Cipher:</span> AES-256-CBC</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-container">
+          {% for category, message in messages %}
+            <div class="flash-alert flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+</body>
+</html>

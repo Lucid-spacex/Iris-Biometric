@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Identify Probe — Iris Biometric Identification{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-tag">STAGE 11 &rarr; 12 MATCHING</div>
+  <h1>Iris Identification Scanner</h1>
+  <p class="subtitle">
+    Scan an eye photo to execute 1-to-many biometric identification against the
+    AES-256 encrypted database gallery using dual Hamming and Euclidean distance metrics.
+  </p>
+</div>
+
+<div class="panel">
+  <h2>Upload Probe Photograph</h2>
+  <p class="sub">Upload an eye image to verify identity or detect an un-enrolled impostor.</p>
+
+  <form method="POST" action="{{ url_for('identify') }}" enctype="multipart/form-data" class="identify-form">
+    <div class="file-dropzone">
+      <input
+        type="file"
+        id="photo"
+        name="photo"
+        accept="image/*"
+        required
+        class="file-input"
+      >
+      <div class="dropzone-label">
+        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <line x1="12" y1="1" x2="12" y2="4"></line>
+          <line x1="12" y1="20" x2="12" y2="23"></line>
+          <line x1="1" y1="12" x2="4" y2="12"></line>
+          <line x1="20" y1="12" x2="23" y2="12"></line>
+        </svg>
+        <div class="dropzone-text">Choose an eye photo to identify</div>
+        <div class="dropzone-sub">Supports JPEG, PNG, BMP &mdash; smartphone photos, WhatsApp images, sensor captures</div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <span>Scan &amp; Identify Probe</span>
+      </button>
+
+      {% if gallery_count == 0 %}
+        <span class="warning-inline">&#9888; Gallery is currently empty. <a href="{{ url_for('enroll') }}">Enroll a subject</a> first.</span>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% if error %}
+  <div class="error-banner">
+    <div class="error-icon">&#9888;</div>
+    <div class="error-body">
+      <strong>Identification Failed:</strong> {{ error }}
+      <p class="upload-hint" style="margin-top:6px;">
+        Make sure the uploaded image clearly shows the eye, or enroll an identity first if the gallery is empty.
+      </p>
+    </div>
+  </div>
+{% endif %}
+
+{% if result %}
+  <div class="panel result-panel">
+    <div class="result-header">
+      <div class="probe-meta-label">{{ probe_label }}</div>
+      <h2>Biometric Identification Verdict</h2>
+    </div>
+
+    <div class="verdicts-grid">
+      <!-- Hamming Verdict Card -->
+      <div class="verdict-card {{ 'match' if result.best_hamming else 'nomatch' }}">
+        <div class="verdict-icon">
+          {% if result.best_hamming %}&#10003;{% else %}&#10005;{% endif %}
+        </div>
+        <div class="verdict-details">
+          <div class="metric-name">HAMMING DISTANCE VERDICT</div>
+          {% if result.best_hamming %}
+            <div class="decision-text">MATCH CONFIRMED</div>
+            <div class="matched-id">{{ result.best_hamming.identity_key }}</div>
+            <div class="dist-stat">Score: {{ "%.4f"|format(result.best_hamming.hamming_distance) }} &le; threshold {{ "%.2f"|format(result.hamming_threshold) }}</div>
+          {% else %}
+            <div class="decision-text">NO MATCH FOUND</div>
+            <div class="matched-id">Unenrolled / Impostor</div>
+            <div class="dist-stat">All candidates exceeded Hamming threshold {{ "%.2f"|format(result.hamming_threshold) }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Euclidean Verdict Card -->
+      <div class="verdict-card {{ 'match' if result.best_euclidean else 'nomatch' }}">
+        <div class="verdict-icon">
+          {% if result.best_euclidean %}&#10003;{% else %}&#10005;{% endif %}
+        </div>
+        <div class="verdict-details">
+          <div class="metric-name">EUCLIDEAN (PCA) VERDICT</div>
+          {% if result.best_euclidean %}
+            <div class="decision-text">MATCH CONFIRMED</div>
+            <div class="matched-id">{{ result.best_euclidean.identity_key }}</div>
+            <div class="dist-stat">Score: {{ "%.2f"|format(result.best_euclidean.euclidean_distance) }} &le; threshold {{ "%.1f"|format(result.euclidean_threshold) }}</div>
+          {% else %}
+            <div class="decision-text">NO MATCH FOUND</div>
+            <div class="matched-id">Unenrolled / Impostor</div>
+            <div class="dist-stat">All candidates exceeded Euclidean threshold {{ "%.1f"|format(result.euclidean_threshold) }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Storage Security Proof -->
+    {% if winning_ciphertext_hex %}
+      <div class="meta-section">
+        <div class="meta-title">STORED AT-REST CIPHERTEXT (ZERO PLAINTEXT LEAK):</div>
+        <div class="cipher-block">{{ winning_ciphertext_hex }}&hellip;</div>
+        <p class="upload-hint" style="margin-top:6px;">
+          The identity <span class="chip">{{ result.best_hamming.identity_key }}</span> was decrypted on-the-fly using the AES-256 master key. It does not exist in any database column.
+        </p>
+      </div>
+    {% endif %}
+
+    <!-- Visual Artifacts -->
+    {% if overlay_uri %}
+      <div class="visuals-section">
+        <h3>Probe Processing Visuals</h3>
+        <div class="visuals-grid">
+          <div class="visual-card">
+            <div class="visual-title">Detected Boundaries</div>
+            <img src="{{ overlay_uri }}" alt="Detected Iris Boundaries" class="visual-img">
+            <div class="visual-desc">Pupil: r={{ "%.1f"|format(processed.segmentation.pupil.r) }}px, Iris: r={{ "%.1f"|format(processed.segmentation.iris.r) }}px</div>
+          </div>
+
+          <div class="visual-card">
+            <div class="visual-title">Normalised Polar Strip</div>
+            <img src="{{ strip_uri }}" alt="Normalised Strip" class="visual-img">
+            <div class="visual-desc">Rubber-sheet unwrap (240&times;20 samples)</div>
+          </div>
+
+          <div class="visual-card">
+            <div class="visual-title">Log-Gabor IrisCode</div>
+            <img src="{{ code_uri }}" alt="Binary IrisCode" class="visual-img">
+            <div class="visual-desc">9,600 bits compared across gallery</div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Candidates Table -->
+    {% if candidates %}
+      <div class="candidates-section">
+        <h3>Gallery Comparison Ranking (1-to-Many)</h3>
+        <table class="scores">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Enrolled Identity</th>
+              <th>Hamming Distance</th>
+              <th>Hamming Match</th>
+              <th>Euclidean Distance</th>
+              <th>Euclidean Match</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in candidates %}
+              <tr class="{{ 'row-match' if c.hamming_match or c.euclidean_match else '' }}">
+                <td>#{{ loop.index }}</td>
+                <td><span class="chip">{{ c.identity_key }}</span></td>
+                <td>{{ "%.4f"|format(c.hamming_distance) }}</td>
+                <td><span class="badge {{ 'badge-success' if c.hamming_match else 'badge-muted' }}">{{ 'MATCH' if c.hamming_match else 'NO' }}</span></td>
+                <td>{{ "%.2f"|format(c.euclidean_distance) }}</td>
+                <td><span class="badge {{ 'badge-success' if c.euclidean_match else 'badge-muted' }}">{{ 'MATCH' if c.euclidean_match else 'NO' }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
+  </div>
+{% endif %}
+{% endblock %}
