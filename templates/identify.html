@@ -74,6 +74,10 @@
   </div>
 {% endif %}
 
+{% if custom_content %}
+  {{ custom_content|safe }}
+{% endif %}
+
 <script>
 function previewImage(event) {
   const file = event.target.files[0];

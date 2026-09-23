@@ -293,6 +293,244 @@ def enroll():
 # ROUTE 3: ENCRYPTED GALLERY AUDIT
 # ==============================================================================
 
+@app.route("/evaluate", methods=["GET", "POST"])
+def evaluate():
+    """Run evaluation against the MMU1 dataset using the standard evaluation pipeline."""
+    gallery = get_gallery()
+    
+    if request.method == "GET":
+        return render_template(
+            "evaluate.html",
+            **_base_context(gallery, active_page="evaluate"),
+        )
+    
+    # POST request - run the evaluation
+    try:
+        from iris_biometric.evaluation import evaluate as run_evaluation
+        from iris_biometric.identity import discover_dataset, DataSource, partition_dataset
+        from iris_biometric.config import DEFAULT_CONFIG
+        from iris_biometric.pipeline import enroll_gallery
+        from pathlib import Path
+        import numpy as np
+        from PIL import Image
+        import time
+        
+        print("Starting evaluation request...")
+        start_time = time.time()
+        
+        # Get MMU1 dataset path - check common locations
+        dataset_path = None
+        possible_paths = [
+            Path(r"C:\Users\Samuel\.cache\kagglehub\datasets\naureenmohammad\mmu-iris-dataset\versions\1\MMU-Iris-Database"),
+            Path("data/MMU-Iris-Database"),
+            Path("MMU-Iris-Database"),
+            Path.home() / "Downloads" / "MMU-Iris-Database",
+        ]
+        
+        for path in possible_paths:
+            if path.exists():
+                dataset_path = path
+                break
+        
+        if not dataset_path:
+            return render_template(
+                "evaluate.html",
+                **_base_context(gallery, active_page="evaluate", error="MMU1 dataset not found. Please download the MMU1 Iris Database and place it in data/MMU-Iris-Database or the expected cache location."),
+            )
+        
+        # Discover records using the existing working function
+        records = discover_dataset(dataset_path, source=DataSource.MMU1_STUDY_DATA)
+        
+        if not records:
+            return render_template(
+                "evaluate.html",
+                **_base_context(gallery, active_page="evaluate", error=f"No valid iris images found under {dataset_path}"),
+            )
+        
+        # Partition using the function we just added to identity.py
+        gallery_recs, probe_recs = partition_dataset(records)
+        
+        # Load images for gallery enrollment
+        gallery_images = []
+        for rec in gallery_recs:
+            try:
+                img = Image.open(rec.path).convert("L")
+                img_array = np.array(img)
+                gallery_images.append((rec.identity_key, img_array))
+            except Exception as e:
+                print(f"Warning: could not read {rec.path}: {e}")
+        
+        if not gallery_images:
+            return render_template(
+                "evaluate.html",
+                **_base_context(gallery, active_page="evaluate", error="Insufficient gallery images for evaluation."),
+            )
+        
+        print(f"Loaded {len(gallery_images)} gallery images for evaluation")
+        
+        # Enroll gallery (this creates a new gallery for evaluation)
+        eval_gallery, skipped_gallery = enroll_gallery(gallery_images)
+        print(f"Enrolled {len(eval_gallery.records)} templates (skipped {len(skipped_gallery)})")
+        
+        # Load images for probes
+        probe_images = []
+        for rec in probe_recs:
+            try:
+                img = Image.open(rec.path).convert("L")
+                img_array = np.array(img)
+                probe_images.append((rec.identity_key, img_array))
+            except Exception as e:
+                print(f"Warning: could not read {rec.path}: {e}")
+        
+        if not probe_images:
+            return render_template(
+                "evaluate.html",
+                **_base_context(gallery, active_page="evaluate", error="Insufficient probe images for evaluation. Each identity needs at least 2 images."),
+            )
+        
+        print(f"Loaded {len(probe_images)} probe images for evaluation")
+        
+        # Run evaluation using the existing working function
+        result = run_evaluation(
+            gallery=eval_gallery,
+            probes=probe_images,
+            data_source="MMU1 Iris Database",
+            config=DEFAULT_CONFIG,
+        )
+        
+        # Display results
+        h = result.hamming
+        e = result.euclidean
+        
+        results_html = f"""
+        <div class="panel">
+            <h2>Evaluation Results - MMU1 Iris Database</h2>
+            <p class="sub">Biometric evaluation using standard MMU1 dataset partitioning</p>
+            
+            <div class="stat-row">
+                <div class="stat">
+                    <div class="num">{h.accuracy*100:.2f}%</div>
+                    <div class="label">Hamming Accuracy</div>
+                </div>
+                <div class="stat">
+                    <div class="num">{e.accuracy*100:.2f}%</div>
+                    <div class="label">Euclidean Accuracy</div>
+                </div>
+                <div class="stat">
+                    <div class="num">{h.eer*100:.2f}%</div>
+                    <div class="label">Hamming EER</div>
+                </div>
+                <div class="stat">
+                    <div class="num">{e.eer*100:.2f}%</div>
+                    <div class="label">Euclidean EER</div>
+                </div>
+            </div>
+            
+            <h3>Detailed Metrics</h3>
+            <table class="scores">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Hamming</th>
+                        <th>Euclidean</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Threshold</td>
+                        <td>{h.threshold:.4f}</td>
+                        <td>{e.threshold:.2f}</td>
+                    </tr>
+                    <tr>
+                        <td>Accuracy</td>
+                        <td>{h.accuracy*100:.2f}%</td>
+                        <td>{e.accuracy*100:.2f}%</td>
+                    </tr>
+                    <tr>
+                        <td>Precision</td>
+                        <td>{h.precision*100:.2f}%</td>
+                        <td>{e.precision*100:.2f}%</td>
+                    </tr>
+                    <tr>
+                        <td>Recall</td>
+                        <td>{h.recall*100:.2f}%</td>
+                        <td>{e.recall*100:.2f}%</td>
+                    </tr>
+                    <tr>
+                        <td>F1 Score</td>
+                        <td>{h.f1:.4f}</td>
+                        <td>{e.f1:.4f}</td>
+                    </tr>
+                    <tr>
+                        <td>FAR</td>
+                        <td>{h.far*100:.2f}%</td>
+                        <td>{e.far*100:.2f}%</td>
+                    </tr>
+                    <tr>
+                        <td>FRR</td>
+                        <td>{h.frr*100:.2f}%</td>
+                        <td>{e.frr*100:.2f}%</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>Comparison Counts</h3>
+            <p>Hamming: TP={h.tp}, TN={h.tn}, FP={h.fp}, FN={h.fn} (Genuine={h.n_genuine}, Impostor={h.n_impostor})</p>
+            <p>Euclidean: TP={e.tp}, TN={e.tn}, FP={e.fp}, FN={e.fn} (Genuine={e.n_genuine}, Impostor={e.n_impostor})</p>
+            
+            <h3>Performance Comparison</h3>
+        """
+        
+        # Add comparison conclusion
+        if h.accuracy > e.accuracy:
+            winner = "Hamming"
+            accuracy_diff = (h.accuracy - e.accuracy) * 100
+            conclusion = f"Hamming distance outperformed Euclidean distance on this MMU1 evaluation: {h.accuracy*100:.2f}% accuracy vs {e.accuracy*100:.2f}% accuracy (+{accuracy_diff:.2f} percentage points)"
+        elif e.accuracy > h.accuracy:
+            winner = "Euclidean"
+            accuracy_diff = (e.accuracy - h.accuracy) * 100
+            conclusion = f"Euclidean distance outperformed Hamming distance on this MMU1 evaluation: {e.accuracy*100:.2f}% accuracy vs {h.accuracy*100:.2f}% accuracy (+{accuracy_diff:.2f} percentage points)"
+        else:
+            winner = "Tie"
+            conclusion = f"Hamming and Euclidean distances achieved identical accuracy on this MMU1 evaluation: {h.accuracy*100:.2f}%"
+        
+        results_html += f"""
+            <p><strong>Winner:</strong> {winner}</p>
+            <p><strong>Conclusion:</strong> {conclusion}</p>
+            
+            <div class="form-actions">
+                <a href="{{ url_for('identify') }}" class="btn btn-secondary">Back to Identification</a>
+            </div>
+        </div>
+        """
+        
+        # Persist derived thresholds to database if connected
+        if gallery.storage and gallery.storage.is_connected:
+            gallery.storage.save_evaluation_thresholds(
+                hamming_threshold=h.threshold,
+                euclidean_threshold=e.threshold,
+                data_source="MMU1 Iris Database",
+                n_comparisons=h.n_genuine + h.n_impostor,
+            )
+        
+        elapsed = time.time() - start_time
+        print(f"Evaluation completed in {elapsed:.2f} seconds")
+        
+        return render_template(
+            "evaluate.html",
+            **_base_context(gallery, active_page="evaluate"),
+            custom_content=results_html
+        )
+        
+    except Exception as exc:
+        import traceback
+        tb = traceback.format_exc()
+        return render_template(
+            "evaluate.html",
+            **_base_context(gallery, active_page="evaluate", error=f"Evaluation failed: {exc}\n\n{tb}"),
+        )
+
+
 @app.route("/gallery")
 def gallery():
     gal = get_gallery()

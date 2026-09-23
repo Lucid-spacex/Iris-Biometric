@@ -115,3 +115,29 @@ def dataset_statistics(records: list[IrisRecord]) -> dict:
         "min_images_per_identity": min(per_identity_counts.values()) if per_identity_counts else 0,
         "max_images_per_identity": max(per_identity_counts.values()) if per_identity_counts else 0,
     }
+
+
+def partition_dataset(
+    records: list[IrisRecord],
+) -> tuple[list[IrisRecord], list[IrisRecord]]:
+    """Partition records by eye identity (S<subject>-<eye>).
+
+    The first available image for each identity is assigned to the enrolment
+    gallery. All subsequent images for that identity become evaluation probes.
+    """
+    from collections import defaultdict
+    
+    by_identity: dict[str, list[IrisRecord]] = defaultdict(list)
+    for r in records:
+        by_identity[r.identity_key].append(r)
+
+    gallery_records: list[IrisRecord] = []
+    probe_records: list[IrisRecord] = []
+
+    for identity_key in sorted(by_identity.keys()):
+        # Sort by image index so enrolment is consistent
+        imgs = sorted(by_identity[identity_key], key=lambda x: str(x.index))
+        gallery_records.append(imgs[0])
+        probe_records.extend(imgs[1:])
+
+    return gallery_records, probe_records

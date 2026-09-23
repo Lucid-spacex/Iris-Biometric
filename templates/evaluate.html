@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluate MMU1 — Iris Biometric Identification{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-tag">STAGE 13-14 &rarr; EVALUATION</div>
+  <h1>MMU1 Dataset Evaluation</h1>
+  <p class="subtitle">
+    Run biometric evaluation against the MMU1 Iris Dataset.
+    This will automatically partition the dataset into gallery and probe sets, compute EER-derived thresholds,
+    and generate performance metrics for both Hamming and Euclidean distance metrics.
+  </p>
+</div>
+
+<div class="panel">
+  <h2>Evaluation Configuration</h2>
+  <p class="sub">This evaluation will run automatically using the MMU1 Iris Dataset with standard hold-out validation.</p>
+  
+  <form method="POST" action="{{ url_for('evaluate') }}">
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span>Run Evaluation</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+{% if error %}
+  <div class="error-banner">
+    <div class="error-icon">&#9888;</div>
+    <div class="error-body">
+      <strong>Evaluation Failed:</strong> {{ error }}
+    </div>
+  </div>
+{% endif %}
+
+{% if custom_content %}
+  {{ custom_content|safe }}
+{% endif %}
+
+{% endblock %}
