@@ -340,6 +340,35 @@ python app.py
    - Cause: MMU1 dataset not found or corrupted
    - Solution: Run `python download_mmu.py` to fetch dataset
 
+5. **AES Decryption Errors ("Invalid padding bytes")**
+   - Cause: AES master key mismatch between encryption and decryption
+   - **Root Cause**: The `AES_MASTER_KEY_HEX` environment variable used during deployment is different from the key used when templates were originally encrypted
+   - **Solution Options**:
+     - **Option 1 (Recommended)**: Use the original key
+       - Find the `AES_MASTER_KEY_HEX` value used during original enrollment
+       - Set it in your `.env` file or Render environment variables
+       - Restart the application
+     - **Option 2**: Clear database and start fresh
+       - This will DELETE all enrolled templates
+       - Generate a new key: `python manage_keys.py --generate`
+       - Clear the Neon Postgres database (drop/recreate tables)
+       - Re-enroll all identities with the new key
+   - **Prevention**: Always set and document `AES_MASTER_KEY_HEX` before first enrollment
+   - **Key Management**: Use `python manage_keys.py` to generate and check keys
+
+### Key Management Commands
+
+```bash
+# Generate a new AES-256 master key
+python manage_keys.py --generate
+
+# Check current key status
+python manage_keys.py --check
+
+# Show database clear warning
+python manage_keys.py --clear-warning
+```
+
 ## File Structure
 
 ```

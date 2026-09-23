@@ -92,6 +92,13 @@ def normalize_db_url(url: str) -> str:
 def get_db_engine(database_url: Optional[str] = None):
     url = database_url or os.environ.get("DATABASE_URL")
     if not url:
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+            url = os.environ.get("DATABASE_URL")
+        except Exception:
+            pass
+    if not url:
         return None
     url = normalize_db_url(url)
     # pool_pre_ping ensures connections disconnected by Neon when idle are reconnected cleanly

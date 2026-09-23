@@ -124,7 +124,9 @@ def run_mmu_evaluation(data_dir: Path, output_json: Path | None = None) -> Evalu
         except Exception as e:
             print(f"Warning: could not read {r.path}: {e}")
 
-    gallery, skipped_gallery = enroll_gallery(gallery_images)
+    # storage=None: evaluation must NEVER write templates to the live DB.
+    # The only intentional DB write in this script is save_evaluation_thresholds() below.
+    gallery, skipped_gallery = enroll_gallery(gallery_images, storage=None)
     print(f"Gallery enrolled: {len(gallery.records)} templates encrypted with AES-256")
     print(f"PCA components fitted: {gallery.projector.n_components_effective}")
     if skipped_gallery:

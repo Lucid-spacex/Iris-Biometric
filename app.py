@@ -27,7 +27,7 @@ from PIL import Image
 load_dotenv()
 
 from iris_biometric.crypto import generate_key
-from iris_biometric.db import DatabaseStorage
+from iris_biometric.db import DatabaseStorage, EncryptedTemplateModel
 from iris_biometric.pipeline import (
     EncryptedGallery,
     PipelineStageFailure,
@@ -57,21 +57,29 @@ def get_master_key() -> bytes:
     return _RUNTIME_AES_KEY
 
 
-def get_gallery() -> EncryptedGallery:
-    """Loads existing encrypted gallery from Neon Postgres, or initializes an empty gallery."""
+def get_gallery(force_reload: bool = False) -> EncryptedGallery:
+    """Loads existing encrypted gallery from Neon Postgres, or initializes an empty gallery.
+
+    If the database is connected and has a different record count than the in-memory
+    cache (e.g. after ingest_mmu.py runs externally), it automatically re-syncs with Postgres.
+    """
     global _GALLERY
-    if _GALLERY is None:
-        storage = DatabaseStorage()
-        master_key = get_master_key()
+    storage = DatabaseStorage()
+    master_key = get_master_key()
 
-        # Try to reload existing gallery from Neon Postgres if available
-        if storage.is_connected:
-            persisted = EncryptedGallery.load_persisted(aes_key=master_key, storage=storage)
-            if persisted:
-                _GALLERY = persisted
-                return _GALLERY
+    if storage.is_connected:
+        try:
+            with storage.Session() as session:
+                db_count = session.query(EncryptedTemplateModel).count()
+            if _GALLERY is None or force_reload or len(_GALLERY.records) != db_count:
+                persisted = EncryptedGallery.load_persisted(aes_key=master_key, storage=storage)
+                if persisted is not None:
+                    _GALLERY = persisted
+                    return _GALLERY
+        except Exception:
+            pass
 
-        # Initialize clean, empty gallery ready for real human enrollments
+    if _GALLERY is None or force_reload:
         _GALLERY = EncryptedGallery(
             aes_key=master_key,
             projector=None,
@@ -181,6 +189,18 @@ def identify():
                 probe_label=label,
             ),
         )
+    except ValueError as exc:
+        if "AES master key" in str(exc) or "Invalid padding" in str(exc):
+            return render_template(
+                "identify.html",
+                **_base_context(
+                    gallery,
+                    active_page="identify",
+                    error=f"Decryption error: {exc}. Please check your AES_MASTER_KEY_HEX environment variable matches the key used during enrollment.",
+                    probe_label=label,
+                ),
+            )
+        raise
 
     overlay_uri = render_segmentation_overlay(probe_img, processed.segmentation)
     strip_uri = render_strip(processed.normalized_strip)
@@ -265,6 +285,18 @@ def enroll():
                 identity_name=identity_name,
             ),
         )
+    except ValueError as exc:
+        if "AES master key" in str(exc) or "Invalid padding" in str(exc):
+            return render_template(
+                "enroll.html",
+                **_base_context(
+                    gallery,
+                    active_page="enroll",
+                    error=f"Decryption error: {exc}. Please check your AES_MASTER_KEY_HEX environment variable matches the key used during enrollment.",
+                    identity_name=identity_name,
+                ),
+            )
+        raise
 
     # Render visualizations for the enrolled template
     first_img = images[0]
@@ -368,8 +400,12 @@ def evaluate():
         
         print(f"Loaded {len(gallery_images)} gallery images for evaluation")
         
-        # Enroll gallery (this creates a new gallery for evaluation)
-        eval_gallery, skipped_gallery = enroll_gallery(gallery_images)
+        # Enroll gallery (this creates a new ISOLATED gallery for evaluation only).
+        # storage=None is mandatory here: we must NOT write MMU1 evaluation
+        # templates into the live encrypted_templates table, which would
+        # overwrite enrolled human subjects with templates encrypted under a
+        # throwaway AES key, breaking the production gallery.
+        eval_gallery, skipped_gallery = enroll_gallery(gallery_images, storage=None)
         print(f"Enrolled {len(eval_gallery.records)} templates (skipped {len(skipped_gallery)})")
         
         # Load images for probes
@@ -533,7 +569,7 @@ def evaluate():
 
 @app.route("/gallery")
 def gallery():
-    gal = get_gallery()
+    gal = get_gallery(force_reload=True)
     records_display = []
     for ref_id, enc in gal.records.items():
         try:

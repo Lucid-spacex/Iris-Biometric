@@ -84,7 +84,19 @@ class EncryptedGallery:
         return TemplateRecord.from_bytes(plaintext)
 
     def decrypt_all(self) -> list[TemplateRecord]:
-        return [self.decrypt(k) for k in self.records]
+        try:
+            return [self.decrypt(k) for k in self.records]
+        except ValueError as e:
+            if "Invalid padding" in str(e) or "AES master key" in str(e):
+                raise ValueError(
+                    "Failed to decrypt templates from database. This typically occurs when "
+                    "the AES_MASTER_KEY_HEX environment variable is different from the key "
+                    "used when the templates were originally encrypted. "
+                    "To fix this, either: "
+                    "1) Set AES_MASTER_KEY_HEX to the original key used for encryption, or "
+                    "2) Clear the database and re-enroll templates with the current key."
+                ) from e
+            raise
 
     def identity_roster(self) -> list[str]:
         """Decrypts every record to list enrolled identities, in enrolment

@@ -58,9 +58,19 @@ def aes_encrypt(plaintext: bytes, key: bytes) -> EncryptedTemplate:
 
 
 def aes_decrypt(record: EncryptedTemplate, key: bytes) -> bytes:
-    decryptor = Cipher(algorithms.AES(key), modes.CBC(record.iv)).decryptor()
-    padded = decryptor.update(record.ciphertext) + decryptor.finalize()
+    try:
+        decryptor = Cipher(algorithms.AES(key), modes.CBC(record.iv)).decryptor()
+        padded = decryptor.update(record.ciphertext) + decryptor.finalize()
 
-    unpadder = padding.PKCS7(_BLOCK_BITS).unpadder()
-    plaintext = unpadder.update(padded) + unpadder.finalize()
-    return plaintext
+        unpadder = padding.PKCS7(_BLOCK_BITS).unpadder()
+        plaintext = unpadder.update(padded) + unpadder.finalize()
+        return plaintext
+    except ValueError as e:
+        if "Invalid padding bytes" in str(e):
+            raise ValueError(
+                "Decryption failed: Invalid padding. This usually means the AES master key "
+                "used for decryption is different from the key used for encryption. "
+                "Ensure AES_MASTER_KEY_HEX environment variable is set to the same value "
+                "used when the templates were originally encrypted."
+            ) from e
+        raise

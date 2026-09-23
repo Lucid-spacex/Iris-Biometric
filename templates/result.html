@@ -139,6 +139,7 @@
       <p class="upload-hint" style="margin-bottom: 12px; color: var(--muted); font-size: 0.85rem;">
         <strong>How to read these scores:</strong> Lower distance values indicate higher similarity. A match occurs when the distance is at or below the cutoff threshold.
       </p>
+      <div class="table-scroll">
       <table class="scores">
         <thead>
           <tr>
@@ -163,8 +164,10 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
   {% endif %}
+
 
   <div class="form-actions" style="margin-top: 24px;">
     <a href="{{ url_for('identify') }}" class="btn btn-secondary">

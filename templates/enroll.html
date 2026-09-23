@@ -49,7 +49,7 @@
 
     <div class="form-group">
       <label for="photos">Eye Photograph(s)</label>
-      <div class="file-dropzone">
+      <div class="file-dropzone" id="enroll-dropzone">
         <input
           type="file"
           id="photos"
@@ -58,8 +58,9 @@
           multiple
           required
           class="file-input"
+          onchange="previewEnrollImages(event)"
         >
-        <div class="dropzone-label">
+        <div class="dropzone-label" id="enroll-dropzone-label">
           <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="17 8 12 3 7 8"></polyline>
@@ -67,6 +68,11 @@
           </svg>
           <div class="dropzone-text">Click to choose or drag & drop eye images here</div>
           <div class="dropzone-sub">Supports JPEG, PNG, BMP (smartphone photos, WhatsApp images, sensor captures)</div>
+        </div>
+        <div id="enroll-image-preview" class="image-preview" style="display: none;">
+          <img id="enroll-preview-img" src="" alt="Preview of selected eye photo">
+          <div class="preview-label" id="enroll-preview-label">Selected photo preview</div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="clearEnrollImages()">Remove</button>
         </div>
       </div>
       <span class="field-hint">Upload 1 or more images. If uploading multiple photos, the Euclidean PCA projector is fitted directly across them.</span>
@@ -174,4 +180,42 @@
     </div>
   </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function previewEnrollImages(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const preview = document.getElementById('enroll-image-preview');
+    const img = document.getElementById('enroll-preview-img');
+    const label = document.getElementById('enroll-preview-label');
+    const dropLabel = document.getElementById('enroll-dropzone-label');
+
+    img.src = e.target.result;
+    // Show filename + count if multiple selected
+    if (files.length === 1) {
+      label.textContent = files[0].name;
+    } else {
+      label.textContent = files[0].name + ' — and ' + (files.length - 1) + ' more image' + (files.length > 2 ? 's' : '');
+    }
+    preview.style.display = 'block';
+    dropLabel.style.display = 'none';
+  };
+  reader.readAsDataURL(files[0]);
+}
+
+function clearEnrollImages() {
+  const input = document.getElementById('photos');
+  const preview = document.getElementById('enroll-image-preview');
+  const dropLabel = document.getElementById('enroll-dropzone-label');
+
+  input.value = '';
+  preview.style.display = 'none';
+  dropLabel.style.display = '';
+}
+</script>
 {% endblock %}

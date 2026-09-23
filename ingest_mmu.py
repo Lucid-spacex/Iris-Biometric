@@ -4,6 +4,9 @@ import glob
 import os
 import numpy as np
 from PIL import Image
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from iris_biometric.pipeline import enroll_gallery
 from iris_biometric.db import DatabaseStorage, EncryptedTemplateModel, GalleryProjectorModel

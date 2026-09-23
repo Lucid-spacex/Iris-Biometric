@@ -733,11 +733,19 @@ label {
 }
 
 /* ==================== TABLES ==================== */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 14px;
+  /* subtle fade on the right edge to hint at horizontal scroll */
+  border-radius: var(--radius);
+}
+
 table.scores {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
-  margin-top: 14px;
+  min-width: 480px; /* prevents columns from crushing on narrow screens */
 }
 
 table.scores th, table.scores td {
@@ -878,45 +886,146 @@ table.scores tr.row-match {
   justify-content: center;
 }
 
+/* Backdrop that dims content when mobile sidebar is open */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 98;
+  backdrop-filter: blur(1px);
+}
+
+.sidebar-backdrop.open {
+  display: block;
+}
+
 @media (max-width: 768px) {
   .app-layout {
     flex-direction: column;
   }
-  
+
   .mobile-header {
     display: flex;
   }
-  
+
+  /* Sidebar slides in from left as an overlay */
   .sidebar {
     position: fixed;
-    top: 65px; /* below mobile header */
+    top: 65px;
     left: 0;
     bottom: 0;
-    width: 100%;
+    width: 80%;
+    max-width: 300px;
     transform: translateX(-100%);
-    transition: transform 0.3s ease;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 99;
     height: calc(100vh - 65px);
-    border-right: none;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
   }
-  
+
   .sidebar.open {
     transform: translateX(0);
+    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.5);
   }
-  
+
   .sidebar-brand {
     display: none;
   }
-  
+
+  /* Main content takes full width on mobile */
   .main-content {
-    padding: 24px 20px 60px;
+    max-width: 100%;
+    padding: 20px 16px 60px;
   }
-  
+
+  /* Scale down h1 on narrow screens */
+  h1 {
+    font-size: 1.6rem;
+  }
+
+  /* Stats already auto-fit but force single column on very narrow */
   .stat-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Two-column panels header → stack vertically */
+  .panel-header-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .panel-header-row .btn {
+    align-self: flex-start;
+  }
+
+  /* Identification verdicts → single column */
+  .verdicts-grid {
     grid-template-columns: 1fr;
   }
-  
-  .verdicts-grid {
+
+  /* Visuals grid → single column */
+  .visuals-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tables get a horizontal scroll wrapper */
+  .table-scroll {
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* Form actions stack vertically */
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Panel actions (post-enroll) stack vertically */
+  .panel-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .panel-actions .btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Security banners wrap better */
+  .security-banner {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .warning-banner {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .error-banner {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Visual cards full-width images */
+  .visual-img {
+    height: auto;
+    min-height: 100px;
+  }
+}
+
+@media (max-width: 400px) {
+  .stat-row {
     grid-template-columns: 1fr;
   }
 }

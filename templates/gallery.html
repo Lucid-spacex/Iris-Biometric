@@ -61,6 +61,7 @@
   </div>
 
   {% if records %}
+    <div class="table-scroll">
     <table class="scores">
       <thead>
         <tr>
@@ -83,6 +84,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   {% else %}
     <div class="empty-state">
       <div class="empty-icon">&#128274;</div>
