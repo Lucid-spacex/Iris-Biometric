@@ -123,8 +123,18 @@ def identify():
         )
 
     try:
-        pil_img = Image.open(io.BytesIO(file.read())).convert("L")
+        file_content = file.read()
+        pil_img = Image.open(io.BytesIO(file_content)).convert("L")
         probe_img = np.array(pil_img)
+        
+        # Create base64 encoded version of original image for preview
+        original_pil = Image.open(io.BytesIO(file_content))
+        import base64
+        from io import BytesIO
+        buffered = BytesIO()
+        original_pil.save(buffered, format="PNG")
+        original_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+        original_uri = f"data:image/png;base64,{original_base64}"
     except Exception as exc:
         return render_template(
             "identify.html",
@@ -132,8 +142,35 @@ def identify():
         )
 
     label = f"Uploaded probe: {file.filename}"
+    
+    # Load thresholds before calling identify_probe
+    from iris_biometric.config import DEFAULT_CONFIG
+    
+    # Try to load evaluation-derived thresholds from database
+    h_thresh = DEFAULT_CONFIG.provisional_hamming_threshold
+    e_thresh = DEFAULT_CONFIG.provisional_euclidean_threshold
+    threshold_source = "provisional default, not yet evaluated"
+    threshold_metadata = {}
+    
+    if gallery.storage and gallery.storage.is_connected:
+        stored_thresholds = gallery.storage.load_evaluation_thresholds()
+        if stored_thresholds:
+            h_thresh = stored_thresholds["hamming_threshold"]
+            e_thresh = stored_thresholds["euclidean_threshold"]
+            threshold_source = f"derived from {stored_thresholds['data_source']}, N={stored_thresholds['n_comparisons']} comparisons"
+            threshold_metadata = {
+                "data_source": stored_thresholds["data_source"],
+                "n_comparisons": stored_thresholds["n_comparisons"],
+                "evaluation_date": stored_thresholds["evaluation_date"],
+            }
+    
     try:
-        result, processed = identify_probe(probe_img, gallery)
+        result, processed = identify_probe(
+            probe_img, 
+            gallery, 
+            hamming_threshold=h_thresh,
+            euclidean_threshold=e_thresh
+        )
     except PipelineStageFailure as exc:
         return render_template(
             "identify.html",
@@ -155,10 +192,6 @@ def identify():
 
     candidates_sorted = sorted(result.candidates, key=lambda c: c.hamming_distance)
 
-    from iris_biometric.config import DEFAULT_CONFIG
-    h_thresh = DEFAULT_CONFIG.provisional_hamming_threshold
-    e_thresh = DEFAULT_CONFIG.provisional_euclidean_threshold
-
     return render_template(
         "result.html",
         **_base_context(
@@ -174,6 +207,9 @@ def identify():
             winning_ciphertext_hex=winning_ciphertext_hex,
             hamming_threshold=h_thresh,
             euclidean_threshold=e_thresh,
+            original_uri=original_uri,
+            threshold_source=threshold_source,
+            threshold_metadata=threshold_metadata,
         ),
     )
 

@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: iris-biometric
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --timeout 120
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: AES_MASTER_KEY_HEX
+        sync: false
+      - key: FLASK_SECRET_KEY
+        sync: false
+      - key: PORT
+        value: 10000

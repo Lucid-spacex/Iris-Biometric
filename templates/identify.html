@@ -25,8 +25,9 @@
         accept="image/*"
         required
         class="file-input"
+        onchange="previewImage(event)"
       >
-      <div class="dropzone-label">
+      <div class="dropzone-label" id="dropzone-label">
         <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="9"></circle>
           <circle cx="12" cy="12" r="3"></circle>
@@ -37,6 +38,11 @@
         </svg>
         <div class="dropzone-text">Choose an eye photo to identify</div>
         <div class="dropzone-sub">Supports JPEG, PNG, BMP &mdash; smartphone photos, WhatsApp images, sensor captures</div>
+      </div>
+      <div id="image-preview" class="image-preview" style="display: none;">
+        <img id="preview-img" src="" alt="Preview of uploaded eye photo">
+        <div class="preview-label">Uploaded Photo Preview</div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="clearImage()">Remove</button>
       </div>
     </div>
 
@@ -68,5 +74,33 @@
   </div>
 {% endif %}
 
+<script>
+function previewImage(event) {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const preview = document.getElementById('image-preview');
+      const img = document.getElementById('preview-img');
+      const label = document.getElementById('dropzone-label');
+      
+      img.src = e.target.result;
+      preview.style.display = 'block';
+      label.style.display = 'none';
+    }
+    reader.readAsDataURL(file);
+  }
+}
+
+function clearImage() {
+  const input = document.getElementById('photo');
+  const preview = document.getElementById('image-preview');
+  const label = document.getElementById('dropzone-label');
+  
+  input.value = '';
+  preview.style.display = 'none';
+  label.style.display = 'block';
+}
+</script>
 
 {% endblock %}

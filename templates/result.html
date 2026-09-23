@@ -16,6 +16,45 @@
     <div class="probe-meta-label">{{ probe_label }}</div>
   </div>
 
+  <!-- Original Uploaded Photo Preview -->
+  {% if original_uri %}
+    <div class="original-photo-section">
+      <h3>Original Uploaded Photo</h3>
+      <div class="original-photo-container">
+        <img src="{{ original_uri }}" alt="Original uploaded eye photo" class="original-photo-img">
+        <div class="original-photo-label">This is the actual photo you submitted for scanning</div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Threshold Source Indicator -->
+  <div class="threshold-source-section">
+    <h3>Match Threshold Source</h3>
+    <div class="threshold-info">
+      <div class="threshold-value">
+        <span class="threshold-label">Hamming Cutoff:</span> 
+        <span class="threshold-number">{{ "%.4f"|format(hamming_threshold) }}</span>
+      </div>
+      <div class="threshold-value">
+        <span class="threshold-label">Euclidean Cutoff:</span> 
+        <span class="threshold-number">{{ "%.2f"|format(euclidean_threshold) }}</span>
+      </div>
+      <div class="threshold-source-text">
+        <strong>Source:</strong> {{ threshold_source }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Warning for potential image reuse -->
+  {% if result.best_hamming and result.best_hamming.hamming_distance < 0.001 %}
+    <div class="warning-banner">
+      <div class="warning-icon">&#9888;</div>
+      <div class="warning-body">
+        <strong>Possible Image Reuse Detected:</strong> The Hamming distance ({{ "%.4f"|format(result.best_hamming.hamming_distance) }}) is extremely close to zero, which may indicate that the same image file was used for both enrollment and identification. This doesn't demonstrate real biometric recognition capability. For a meaningful accuracy test, use different images of the same person.
+      </div>
+    </div>
+  {% endif %}
+
   <div class="verdicts-grid">
     <!-- Hamming Verdict Card -->
     <div class="verdict-card {{ 'match' if result.best_hamming else 'nomatch' }}">
@@ -27,11 +66,11 @@
         {% if result.best_hamming %}
           <div class="decision-text">MATCH CONFIRMED</div>
           <div class="matched-id">{{ result.best_hamming.identity_key }}</div>
-          <div class="dist-stat">Score: {{ "%.4f"|format(result.best_hamming.hamming_distance) }} &le; threshold {{ "%.2f"|format(hamming_threshold) }}</div>
+          <div class="dist-stat">Distance: {{ "%.4f"|format(result.best_hamming.hamming_distance) }} (lower = more similar) | Cutoff for a match: {{ "%.2f"|format(hamming_threshold) }} | Result: MATCH</div>
         {% else %}
           <div class="decision-text">NO MATCH FOUND</div>
           <div class="matched-id">Unenrolled / Impostor</div>
-          <div class="dist-stat">All candidates exceeded Hamming threshold {{ "%.2f"|format(hamming_threshold) }}</div>
+          <div class="dist-stat">All candidates exceeded cutoff (lower = more similar) | Cutoff for a match: {{ "%.2f"|format(hamming_threshold) }} | Result: NO MATCH</div>
         {% endif %}
       </div>
     </div>
@@ -46,11 +85,11 @@
         {% if result.best_euclidean %}
           <div class="decision-text">MATCH CONFIRMED</div>
           <div class="matched-id">{{ result.best_euclidean.identity_key }}</div>
-          <div class="dist-stat">Score: {{ "%.2f"|format(result.best_euclidean.euclidean_distance) }} &le; threshold {{ "%.1f"|format(euclidean_threshold) }}</div>
+          <div class="dist-stat">Distance: {{ "%.2f"|format(result.best_euclidean.euclidean_distance) }} (lower = more similar) | Cutoff for a match: {{ "%.1f"|format(euclidean_threshold) }} | Result: MATCH</div>
         {% else %}
           <div class="decision-text">NO MATCH FOUND</div>
           <div class="matched-id">Unenrolled / Impostor</div>
-          <div class="dist-stat">All candidates exceeded Euclidean threshold {{ "%.1f"|format(euclidean_threshold) }}</div>
+          <div class="dist-stat">Distance: Exceeded threshold (lower = more similar) | Cutoff for a match: {{ "%.1f"|format(euclidean_threshold) }} | Result: NO MATCH</div>
         {% endif %}
       </div>
     </div>
@@ -97,6 +136,9 @@
   {% if candidates %}
     <div class="candidates-section">
       <h3>Gallery Comparison Ranking (1-to-Many)</h3>
+      <p class="upload-hint" style="margin-bottom: 12px; color: var(--muted); font-size: 0.85rem;">
+        <strong>How to read these scores:</strong> Lower distance values indicate higher similarity. A match occurs when the distance is at or below the cutoff threshold.
+      </p>
       <table class="scores">
         <thead>
           <tr>

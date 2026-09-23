@@ -65,6 +65,23 @@ class GalleryProjectorModel(Base):
     )
 
 
+class EvaluationThresholdsModel(Base):
+    """Persisted evaluation-derived thresholds for real biometric matching."""
+
+    __tablename__ = "evaluation_thresholds"
+
+    id = Column(Integer, primary_key=True, default=1)
+    hamming_threshold = Column(Integer, nullable=False)  # Stored as integer to avoid floating precision issues
+    euclidean_threshold = Column(Integer, nullable=False)  # Stored as integer to avoid floating precision issues
+    data_source = Column(String(255), nullable=False)
+    n_comparisons = Column(Integer, nullable=False)
+    evaluation_date = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 def normalize_db_url(url: str) -> str:
     """Normalize connection strings (e.g. postgres:// -> postgresql://)."""
     if url.startswith("postgres://"):
@@ -172,4 +189,53 @@ class DatabaseStorage:
                 except Exception as e:
                     print(f"Warning: Failed to deserialize projector: {e}")
                     return None
+        return None
+
+    def save_evaluation_thresholds(
+        self,
+        hamming_threshold: float,
+        euclidean_threshold: float,
+        data_source: str,
+        n_comparisons: int,
+    ) -> None:
+        """Save evaluation-derived thresholds to database."""
+        if not self.is_connected:
+            return
+        # Store as integers to avoid floating point precision issues
+        # Hamming: multiply by 10000 for 4 decimal places
+        # Euclidean: multiply by 10 for 1 decimal place
+        with self.Session() as session:
+            row = session.query(EvaluationThresholdsModel).filter_by(id=1).first()
+            if not row:
+                row = EvaluationThresholdsModel(
+                    id=1,
+                    hamming_threshold=int(hamming_threshold * 10000),
+                    euclidean_threshold=int(euclidean_threshold * 10),
+                    data_source=data_source,
+                    n_comparisons=n_comparisons,
+                )
+                session.add(row)
+            else:
+                row.hamming_threshold = int(hamming_threshold * 10000)
+                row.euclidean_threshold = int(euclidean_threshold * 10)
+                row.data_source = data_source
+                row.n_comparisons = n_comparisons
+                row.evaluation_date = func.now()
+            session.commit()
+
+    def load_evaluation_thresholds(self) -> Optional[dict]:
+        """Load evaluation-derived thresholds from database."""
+        if not self.is_connected:
+            return None
+        with self.Session() as session:
+            row = session.query(EvaluationThresholdsModel).filter_by(id=1).first()
+            if row:
+                # Convert back from integer storage
+                return {
+                    "hamming_threshold": row.hamming_threshold / 10000.0,
+                    "euclidean_threshold": row.euclidean_threshold / 10.0,
+                    "data_source": row.data_source,
+                    "n_comparisons": row.n_comparisons,
+                    "evaluation_date": row.evaluation_date,
+                }
         return None

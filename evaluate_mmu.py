@@ -181,14 +181,84 @@ def run_mmu_evaluation(data_dir: Path, output_json: Path | None = None) -> Evalu
         print(f"  Skipped probe images (failed segmentation): {len(result.skipped_probes)} / {len(probe_images)}")
     print("=" * 72)
 
+    # 8. Direct comparison and conclusion
+    print("\n" + "=" * 72)
+    print("HAMMING VS EUCLIDEAN COMPARISON")
+    print("=" * 72)
+
+    # Compare based on accuracy (primary metric for overall performance)
+    if h.accuracy > e.accuracy:
+        winner = "Hamming"
+        accuracy_diff = (h.accuracy - e.accuracy) * 100
+        conclusion = f"Hamming distance outperformed Euclidean distance on this evaluation set: {h.accuracy*100:.2f}% accuracy vs {e.accuracy*100:.2f}% accuracy (+{accuracy_diff:.2f} percentage points)"
+    elif e.accuracy > h.accuracy:
+        winner = "Euclidean"
+        accuracy_diff = (e.accuracy - h.accuracy) * 100
+        conclusion = f"Euclidean distance outperformed Hamming distance on this evaluation set: {e.accuracy*100:.2f}% accuracy vs {h.accuracy*100:.2f}% accuracy (+{accuracy_diff:.2f} percentage points)"
+    else:
+        winner = "Tie"
+        conclusion = f"Hamming and Euclidean distances achieved identical accuracy on this evaluation set: {h.accuracy*100:.2f}%"
+
+    print(f"\nPRIMARY COMPARISON (Accuracy):")
+    print(f"  Winner: {winner}")
+    print(f"  {conclusion}")
+
+    # Secondary comparisons
+    print(f"\nSECONDARY METRICS:")
+    print(f"  EER (lower is better): Hamming {h.eer*100:.2f}% vs Euclidean {e.eer*100:.2f}%")
+    print(f"  F1 Score (higher is better): Hamming {h.f1:.4f} vs Euclidean {e.f1:.4f}")
+    print(f"  Precision (higher is better): Hamming {h.precision*100:.2f}% vs Euclidean {e.precision*100:.2f}%")
+    print(f"  Recall (higher is better): Hamming {h.recall*100:.2f}% vs Euclidean {e.recall*100:.2f}%")
+
+    print(f"\nFINAL CONCLUSION:")
+    print(f"  {conclusion}")
+    print("=" * 72)
+
+    # 7. Persist derived thresholds to database if connected
+    from iris_biometric.db import DatabaseStorage
+    storage = DatabaseStorage()
+    if storage.is_connected:
+        storage.save_evaluation_thresholds(
+            hamming_threshold=h.threshold,
+            euclidean_threshold=e.threshold,
+            data_source=result.data_source,
+            n_comparisons=h.n_genuine + h.n_impostor,
+        )
+        print(f"\nDerived thresholds persisted to Neon Postgres:")
+        print(f"  Hamming: {h.threshold:.4f}")
+        print(f"  Euclidean: {e.threshold:.2f}")
+        print(f"  Data source: {result.data_source}")
+        print(f"  Comparisons: {h.n_genuine + h.n_impostor}")
+    else:
+        print(f"\nNote: Database not connected - thresholds not persisted.")
+        print(f"Live identification will continue using provisional defaults from config.")
+
     # 7. Optionally save output to JSON
     if output_json:
+        # Determine winner for JSON output
+        if h.accuracy > e.accuracy:
+            comparison_winner = "Hamming"
+            accuracy_diff = (h.accuracy - e.accuracy) * 100
+            comparison_conclusion = f"Hamming distance outperformed Euclidean distance on this evaluation set: {h.accuracy*100:.2f}% accuracy vs {e.accuracy*100:.2f}% accuracy (+{accuracy_diff:.2f} percentage points)"
+        elif e.accuracy > h.accuracy:
+            comparison_winner = "Euclidean"
+            accuracy_diff = (e.accuracy - h.accuracy) * 100
+            comparison_conclusion = f"Euclidean distance outperformed Hamming distance on this evaluation set: {e.accuracy*100:.2f}% accuracy vs {h.accuracy*100:.2f}% accuracy (+{accuracy_diff:.2f} percentage points)"
+        else:
+            comparison_winner = "Tie"
+            comparison_conclusion = f"Hamming and Euclidean distances achieved identical accuracy on this evaluation set: {h.accuracy*100:.2f}%"
+
         report_data = {
             "data_source": result.data_source,
             "dataset_stats": stats,
             "gallery_enrolled_count": len(gallery.records),
             "skipped_gallery_count": len(skipped_gallery),
             "skipped_probe_count": len(result.skipped_probes),
+            "comparison": {
+                "winner": comparison_winner,
+                "conclusion": comparison_conclusion,
+                "accuracy_difference": abs(h.accuracy - e.accuracy) * 100,
+            },
             "hamming": {
                 "threshold": h.threshold,
                 "eer": h.eer,
