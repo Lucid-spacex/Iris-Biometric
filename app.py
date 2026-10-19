@@ -27,7 +27,7 @@ from PIL import Image
 load_dotenv()
 
 from iris_biometric.crypto import generate_key
-from iris_biometric.db import DatabaseStorage, EncryptedTemplateModel
+from iris_biometric.db import DatabaseStorage, EncryptedTemplateModel, GalleryProjectorModel
 from iris_biometric.pipeline import (
     EncryptedGallery,
     PipelineStageFailure,
@@ -44,17 +44,35 @@ _RUNTIME_AES_KEY: bytes | None = None
 
 
 def get_master_key() -> bytes:
-    """Returns the persistent 256-bit AES master key from .env or generates one."""
+    """Returns the persistent 256-bit AES master key from .env.
+
+    CRITICAL: If AES_MASTER_KEY_HEX is not set in .env, the application
+    will exit with an error. This prevents the recurring AES key mismatch
+    problem where templates become undecryptable on server restart.
+    """
     global _RUNTIME_AES_KEY
     key_hex = os.environ.get("AES_MASTER_KEY_HEX", "").strip()
     if key_hex:
         try:
             return bytes.fromhex(key_hex)
         except ValueError:
-            pass
-    if _RUNTIME_AES_KEY is None:
-        _RUNTIME_AES_KEY = generate_key(256)
-    return _RUNTIME_AES_KEY
+            print("=" * 80)
+            print("FATAL ERROR: AES_MASTER_KEY_HEX is set but invalid.")
+            print(f"Value: {key_hex[:20]}...")
+            print("=" * 80)
+            raise SystemExit(1)
+
+    # No valid key in environment - FATAL ERROR
+    print("=" * 80)
+    print("FATAL ERROR: AES_MASTER_KEY_HEX not set in .env file or environment.")
+    print("=" * 80)
+    print("The application cannot start without a persistent AES key.")
+    print("To fix this:")
+    print("  1. Copy .env.example to .env in the deploy folder")
+    print("  2. Generate a key: python -c \"import secrets; print(secrets.token_hex(32))\"")
+    print("  3. Set AES_MASTER_KEY_HEX=your_key_hex_value in .env")
+    print("=" * 80)
+    raise SystemExit(1)
 
 
 def get_gallery(force_reload: bool = False) -> EncryptedGallery:
@@ -76,10 +94,17 @@ def get_gallery(force_reload: bool = False) -> EncryptedGallery:
                 if persisted is not None:
                     _GALLERY = persisted
                     return _GALLERY
-        except Exception:
-            pass
+                else:
+                    print(f"[WARNING] Database has {db_count} templates but failed to load (likely AES key mismatch or decryption error)")
+        except Exception as e:
+            print(f"[WARNING] Error loading gallery from database: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fall through to in-memory gallery below
 
     if _GALLERY is None or force_reload:
+        if not storage.is_connected:
+            print("[WARNING] Database not connected - using IN-MEMORY storage. Data will be lost on restart.")
         _GALLERY = EncryptedGallery(
             aes_key=master_key,
             projector=None,
@@ -630,6 +655,32 @@ h1{{color:#ef4444;}}a{{color:#06b6d4;}}</style></head><body>
 <pre>{tb}</pre>
 <p><a href="/">&#8592; Back to Home</a></p>
 </body></html>""", 500
+
+
+# Startup verification: check database connectivity and AES key before serving
+print("=" * 80)
+print("STARTUP VERIFICATION")
+print("=" * 80)
+try:
+    storage = DatabaseStorage()
+    if storage.is_connected:
+        with storage.Session() as session:
+            db_count = session.query(EncryptedTemplateModel).count()
+            projector_count = session.query(GalleryProjectorModel).count()
+        print(f"[OK] Database connected: Neon Postgres")
+        print(f"[OK] Database contains: {db_count} encrypted templates, {projector_count} projector(s)")
+        master_key = get_master_key()
+        print(f"[OK] AES_MASTER_KEY_HEX is set (length: {len(master_key)} bytes)")
+    else:
+        print("[WARNING] Database NOT connected - running in IN-MEMORY mode")
+        print("  Data will be lost on server restart. Check DATABASE_URL environment variable.")
+except Exception as e:
+    print(f"[ERROR] during startup verification: {e}")
+    import traceback
+    traceback.print_exc()
+    print("=" * 80)
+    raise SystemExit(1)
+print("=" * 80)
 
 
 if __name__ == "__main__":

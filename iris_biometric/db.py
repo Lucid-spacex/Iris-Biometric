@@ -117,8 +117,14 @@ class DatabaseStorage:
     def __init__(self, database_url: Optional[str] = None):
         self.engine = get_db_engine(database_url)
         if self.engine is not None:
-            init_db(self.engine)
-            self.Session = sessionmaker(bind=self.engine)
+            try:
+                init_db(self.engine)
+                self.Session = sessionmaker(bind=self.engine)
+            except Exception as e:
+                # Connection failed - this can happen due to network issues
+                # Set Session to None so is_connected returns False
+                print(f"[WARNING] Database connection failed during initialization: {e}")
+                self.Session = None
         else:
             self.Session = None
 
